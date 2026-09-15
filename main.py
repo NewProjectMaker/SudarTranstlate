@@ -1,32 +1,33 @@
+import os
 from fastapi import FastAPI
 from pydantic import BaseModel
-import os
-import requests
+from openai import OpenAI
 
 app = FastAPI()
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-
-class TextRequest(BaseModel):
+class TranslateRequest(BaseModel):
     text: str
 
 @app.post("/translate")
-def translate_text(req: TextRequest):
-    prompt = f"Переведи текст на дореволюционный дворянский русский язык XIX века. Используй обращения 'сударь', 'извольте'. Отвечай СТРОГО только переведенным текстом без пояснений и кавычек: {req.text}"
-    
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
-    body = {
-        "model": "llama-3.1-8b-instant",
-        "messages": [{"role": "user", "content": prompt}]
-    }
-    
-    response = requests.post("https://api.groq.com/openai/v1/chat/completions", json=body, headers=headers)
-    
-    if response.status_code == 200:
-        result = response.json()["choices"][0]["message"]["content"]
-        return {"result": result.strip()}
-    return {"result": req.text}
+async def translate(req: TranslateRequest):
+    if not req.text.strip():
+        return {"result": ""}
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Ты — дворянин XIX века. Перепиши данный текст в изысканном дворянском стиле того времени, сохраняя исходный смысл. Возвращай ТОЛЬКО переведенный текст без кавычек и лишних пояснений."
+                },
+                {"role": "user", "content": req.text}
+            ],
+            temperature=0.7
+        )
+        translated_text = response.choices[0].message.content.strip()
+        return {"result": translated_text}
+    except Exception as e:
+        print(f"Error: {e}")
+        return {"error": "Ошибка при обработке запроса"}, 500
