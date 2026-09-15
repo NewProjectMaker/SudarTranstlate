@@ -5,7 +5,6 @@ import requests
 
 app = FastAPI()
 
-# Ключ будет подтягиваться из настроек Render.com
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 class TextRequest(BaseModel):
